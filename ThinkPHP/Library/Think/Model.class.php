@@ -1076,7 +1076,13 @@ class Model {
      */
     private function autoOperation(&$data,$type) {
         if(!empty($this->options['auto'])) {
-            $_auto   =   $this->options['auto'];
+            //自动完成静态和动态结合
+            if(!empty($this->_auto)){
+                $_auto = array_merge($this->_auto,$this->options['auto']);
+            }else{
+                $_auto   =   $this->options['auto'];
+            }
+            //$_auto   =   $this->options['auto'];
             unset($this->options['auto']);
         }elseif(!empty($this->_auto)){
             $_auto   =   $this->_auto;
@@ -1090,13 +1096,18 @@ class Model {
                 if( $type == $auto[2] || $auto[2] == self::MODEL_BOTH) {
                     if(empty($auto[3])) $auto[3] =  'string';
                     switch(trim($auto[3])) {
+                        //todo 增加api调取方式
+                        case 'api':
                         case 'function':    //  使用函数进行填充 字段的值作为参数
                         case 'callback': // 使用回调方法
                             $args = isset($auto[4])?(array)$auto[4]:array();
                             if(isset($data[$auto[0]])) {
                                 array_unshift($args,$data[$auto[0]]);
                             }
-                            if('function'==$auto[3]) {
+                            if('api'==$auto[3]){
+                                $data[$auto[0]]  = API($auto[1],array($args));
+                            }else if
+                            ('function'==$auto[3]) {
                                 $data[$auto[0]]  = call_user_func_array($auto[1], $args);
                             }else{
                                 $data[$auto[0]]  =  call_user_func_array(array(&$this,$auto[1]), $args);
@@ -1519,6 +1530,14 @@ class Model {
             return $fields;
         }
         return false;
+    }
+
+    /**
+     * 主要用于获取表字段的详细信息
+     * @return array
+     */
+    public function getProtectedFields(){
+        return $this->fields;
     }
 
     /**

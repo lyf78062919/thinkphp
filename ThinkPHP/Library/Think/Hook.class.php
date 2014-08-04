@@ -111,11 +111,24 @@ class Hook {
      * @return void
      */
     static public function exec($name, $tag,&$params=NULL) {
+        static $container = null;
         if('Behavior' == substr($name,-8) ){
             // 行为扩展必须用run入口方法
             $tag    =   'run';
         }
-        $addon   = new $name();
-        return $addon->$tag($params);
+
+        if(class_exists($name)){
+            $addon   = new $name();
+        }else{
+            if($container === null)
+                $container = \Component\Factory::getContainer();
+            $addon = $container->get($name);
+        }
+        if(method_exists($addon,$tag))
+            return $addon->$tag($params);
+        else{
+            if(APP_DEBUG) throw_exception(get_class($addon)." 类没有 ".$tag." 成员方法！");
+            else return;
+        }
     }
 }

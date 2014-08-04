@@ -519,11 +519,21 @@ function vendor($class, $baseUrl = '', $ext='.php') {
  */
 function D($name='',$layer='') {
     if(empty($name)) return new Think\Model;
+
+    if(false !== strpos($name,':')){
+        $nameInfo = explode(":",$name,2);
+        $_name = $name;
+        $name = $nameInfo[1];
+    }else{
+        $_name = $name;
+    }
+
     static $_model  =   array();
     $layer          =   $layer? : C('DEFAULT_M_LAYER');
     if(isset($_model[$name.$layer]))
         return $_model[$name.$layer];
-    $class          =   parse_res_name($name,$layer);
+
+    $class          =   parse_res_name($_name,$layer);
     if(class_exists($class)) {
         $model      =   new $class(basename($name));
     }elseif(false === strpos($name,'/')){
@@ -581,15 +591,31 @@ function parse_res_name($name,$layer,$level=1){
     }else{
         $module =   defined('MODULE_NAME') ? MODULE_NAME : '' ;
     }
+
+    $array = C('BUNDLE_LAYER_ARRAY');
+    if(in_array($layer,$array)){
+        if(strpos($name,":")){
+            $nameArr = explode(":",$name,2);
+            $_layer = C('DEFAULT_BUNDLE_LAYER').'\\'.$nameArr[0];
+            $name  = $nameArr[1];
+        }else{
+            $_layer = $layer;
+        }
+    }else{
+        $_layer = $layer;
+    }
+
     $array  =   explode('/',$name);
     if(!C('APP_USE_NAMESPACE')){
         $class  =   parse_name($name, 1);
-        import($module.'/'.$layer.'/'.$class.$layer);
+        import($module.'/'.$_layer.'/'.$class.$layer);
     }else{
-        $class  =   $module.'\\'.$layer;
+
+        $class  =   $module.'\\'.$_layer;
         foreach($array as $name){
             $class  .=   '\\'.parse_name($name, 1);
         }
+
         // 导入资源类库
         if($extend){ // 扩展资源
             $class      =   $extend.'\\'.$class;
@@ -637,8 +663,9 @@ function A($name,$layer='',$level=0) {
     $level  =   $level? : ($layer == C('DEFAULT_C_LAYER')?C('CONTROLLER_LEVEL'):1);
     if(isset($_action[$name.$layer]))
         return $_action[$name.$layer];
-    
+
     $class  =   parse_res_name($name,$layer,$level);
+
     if(class_exists($class)) {
         $action             =   new $class();
         $_action[$name.$layer]     =   $action;
@@ -661,6 +688,7 @@ function R($url,$vars=array(),$layer='') {
     $action =   $info['basename'];
     $module =   $info['dirname'];
     $class  =   A($module,$layer);
+
     if($class){
         if(is_string($vars)) {
             parse_str($vars,$vars);
@@ -889,6 +917,16 @@ function U($url='',$vars='',$suffix=true,$domain=false) {
             $varController  =   C('VAR_CONTROLLER');
             $varAction      =   C('VAR_ACTION');
             $var[$varAction]       =   !empty($path)?array_pop($path):ACTION_NAME;
+
+            if(!empty($path) && C('CONTROLLER_LEVEL') > 1){
+                $count = C('CONTROLLER_LEVEL');
+                while($count--){
+                    $var[$varController][] = (!empty($path)?array_pop($path):CONTROLLER_NAME);
+                }
+                $var[$varController] = array_reverse($var[$varController]);
+                $var[$varController] = implode($depr,$var[$varController]);
+            }
+
             $var[$varController]   =   !empty($path)?array_pop($path):CONTROLLER_NAME;
             if($maps = C('URL_ACTION_MAP')) {
                 if(isset($maps[strtolower($var[$varController])])) {
@@ -907,9 +945,18 @@ function U($url='',$vars='',$suffix=true,$domain=false) {
                 $var[$varController]   =   parse_name($var[$varController]);
             }
             $module =   '';
-            
+
+            //dump($path);
+            //dump(C('CONTROLLER_LEVEL'));
+/*            if(!empty($path) && C('CONTROLLER_LEVEL') > 1){
+                for($i = 1;$i < C('CONTROLLER_LEVEL');$i++){
+                    $var['l'] = array_pop($path);
+                }
+            }*/
+
+
             if(!empty($path)) {
-                $var[$varModule]    =   implode($depr,$path);
+                $var[$varModule]    =   array_pop($path);
             }else{
                 if(C('MULTI_MODULE')) {
                     if(MODULE_NAME != C('DEFAULT_MODULE') || !C('MODULE_ALLOW_LIST')){
@@ -917,6 +964,7 @@ function U($url='',$vars='',$suffix=true,$domain=false) {
                     }
                 }
             }
+
             if($maps = C('URL_MODULE_MAP')) {
                 if($_module = array_search(strtolower($var[$varModule]),$maps)){
                     $var[$varModule] = $_module;
@@ -926,12 +974,12 @@ function U($url='',$vars='',$suffix=true,$domain=false) {
                 $module =   $var[$varModule];
                 unset($var[$varModule]);
             }
-            
+
         }
     }
 
 	
-	if(C('URL_MODEL') == 0) { // 普通模式URL转换
+    if(C('URL_MODEL') == 0) { // 普通模式URL转换
         $url        =   __APP__.'?'.C('VAR_MODULE')."={$module}&".http_build_query(array_reverse($var));
         if($urlCase){
             $url    =   strtolower($url);
@@ -981,7 +1029,7 @@ function U($url='',$vars='',$suffix=true,$domain=false) {
  * @return void
  */
 function W($name, $data=array()) {
-    R($name,$data,'Widget');
+    return R($name,$data,'Widget');
 }
 
 /**
